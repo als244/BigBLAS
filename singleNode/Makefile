@@ -2,7 +2,16 @@ CC = gcc
 CFLAGS = -g3 -std=c99 -pedantic -O2 -Wall
 PROFILE_FLAGS = -pg -no-pie -fno-builtin
 
-all: cpu_gemm_openblas
+all: saveMatrices singleNodeBigGEMM cpu_gemm_openblas
+
+saveMatrices: saveMatrices.c
+	${CC} ${CFLAGS} -o $@ $^ -lm
+
+singleNodeBigGEMM: singleNodeBigGEMM.c
+	${CC} ${CFLAGS} -o $@ $^ -lm -lopenblas
+
+
+
 
 cpu_gemm_openblas.o: cpu_gemm_openblas.c
 	gcc -I/usr/include/OpenBLAS/include -c -O2 cpu_gemm_openblas.c 
