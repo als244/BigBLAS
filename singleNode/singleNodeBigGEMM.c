@@ -159,15 +159,19 @@ int main(int argc, char * argv[]){
 
 	size_t cnt, aInd, bInd, cInd;
 
+	size_t matMulCnt = 0;
 
 
+	struct timeval start, end, curTime;
+	double time_taken;
+    gettimeofday(&start, NULL);
+	
 	/* STRATEGY 1: Keeping same sublock of A in memory and exhausting matmuls paired with it */
 	// for simplicity iterate keeping each of the "A blocks" in memory and pairing them will all the "B blocks"
 	// creates a lot of temp results that take up storage and need to be aggregated
 
 	if (STRAT_ID == 0){
 		size_t partialInd;
-
 		for (aInd = 0; aInd < blocksA; aInd++){
 			load_subblock(subA, aInd, subM, subK, fpA, m, k);
 			cnt = 0;
@@ -182,6 +186,13 @@ int main(int argc, char * argv[]){
 				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 						subM, subN, subK, 1.0, subA, subK, subB, subN, 
 						0, subC, subN);
+				matMulCnt += 1;
+				if (matMulCnt % 100 == 0){
+					gettimeofday(&curTime, NULL);
+					time_taken = (double) (curTime.tv_usec - start.tv_usec) / 1000000 +
+        							(double) (curTime.tv_sec - start.tv_sec);
+					printf("After %zu matMuls: %f seconds\n", matMulCnt, time_taken);
+				}
 				
 				// save partial result of C
 				partialInd = aInd % blocksK;
@@ -200,6 +211,7 @@ int main(int argc, char * argv[]){
 	/* STRATEGY 2: Keeping same partial result block in memory and iterating over result blocks */
 	// iterate over each block in the output by keeping each "C block" in memory
 	
+	matMulCnt = 0;
 
 	if (STRAT_ID == 1){
 		float beta;
@@ -222,6 +234,13 @@ int main(int argc, char * argv[]){
 				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 						subM, subN, subK, 1.0, subA, subK, subB, subN, 
 						beta, subC, subN);
+				matMulCnt += 1;
+				if (matMulCnt % 100 == 0){
+					gettimeofday(&curTime, NULL);
+					time_taken = (double) (curTime.tv_usec - start.tv_usec) / 1000000 +
+        							(double) (curTime.tv_sec - start.tv_sec);
+					printf("After %zu matMuls: %f seconds\n", matMulCnt, time_taken);
+				}
 
 				// get next block in row of A
 				aInd += 1;
@@ -238,6 +257,12 @@ int main(int argc, char * argv[]){
 
 		}
 	}
+
+	gettimeofday(&end, NULL);
+    time_taken = (double) (end.tv_usec - start.tv_usec) / 1000000 +
+        (double) (end.tv_sec - start.tv_sec); // in seconds
+
+    printf("\n\n\nSGEMM where: m=%zu, k=%zu, n=%zu took --- %f seconds\n", m, k, n, time_taken);
 
 	free(subA);
 	free(subB);
