@@ -14,6 +14,7 @@ struct matrixMeta {
 	int typeID;
 };
 
+bool SAVE_TEMP_PARTIAL = false;
 int STRAT_ID = 0;
 
 long roundUpToMultiple(long numToRound, long multiple)
@@ -161,6 +162,7 @@ int main(int argc, char * argv[]){
 	openblas_set_num_threads(NUM_THREADS);
 
 	size_t cnt, aInd, bInd, cInd;
+	float beta;
 
 	size_t matMulCnt = 0;
 
@@ -185,10 +187,18 @@ int main(int argc, char * argv[]){
 				
 				
 				cInd = (aInd / blocksK) * blocksN + cnt;
+
+				if (cnt == 0 || SAVE_TEMP_PARTIAL){
+					beta = 0;
+				}
+				else{
+					load_subblock(subC, cInd, subM, subN, fpC, m, n);
+					beta = 1;
+				}
 				// do matmul
 				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 						subM, subN, subK, 1.0, subA, subK, subB, subN, 
-						0, subC, subN);
+						beta, subC, subN);
 				matMulCnt += 1;
 				if (matMulCnt % 100 == 0){
 					gettimeofday(&curTime, NULL);
@@ -198,8 +208,18 @@ int main(int argc, char * argv[]){
 				}
 				
 				// save partial result of C
-				partialInd = aInd % blocksK;
-				save_partial_result(subC, cInd, partialInd, subM, subN);
+				
+				/* saving partial result to disk to aggregate later */
+				if (SAVE_TEMP_PARTIAL){
+					partialInd = aInd % blocksK;
+					save_partial_result(subC, cInd, partialInd, subM, subN);
+				}
+				// saving to block in memory
+				else{
+					save_subblock(subC, cInd, subM, subN, fpC, m, n);
+				}
+				/* 
+
 
 				// get next B ind
 				bInd += blocksK;
@@ -217,7 +237,6 @@ int main(int argc, char * argv[]){
 	matMulCnt = 0;
 
 	if (STRAT_ID == 1){
-		float beta;
 
 		for (cInd = 0; cInd < blocksC; cInd++){
 			// get starting inds for A row and B col
