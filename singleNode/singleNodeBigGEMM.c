@@ -6,6 +6,8 @@
 #include <sys/time.h>
 #include <cblas.h>
 
+#define NUM_THREADS 16
+
 struct matrixMeta {
 	size_t rows;
 	size_t cols;
@@ -156,6 +158,7 @@ int main(int argc, char * argv[]){
 	free(pathC);
 
 	/* STARTING MATRIX MULTIPLICATIONS! */
+	openblas_set_num_threads(NUM_THREADS);
 
 	size_t cnt, aInd, bInd, cInd;
 
