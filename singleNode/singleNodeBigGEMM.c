@@ -60,7 +60,7 @@ void save_partial_result(float * subBlock, size_t blockInd, size_t partialInd, s
 	
 	FILE * fpPartial;
 	char * partialPath;
-	asprintf(&partialPath, "/home/shein/Documents/grad_school/research/BigBLAS/data/temp/%zu_%zu", blockInd, partialInd);
+	asprintf(&partialPath, "/mnt/storage/data/BigBLAS/temp/%zu_%zu", blockInd, partialInd);
 	
 	fpPartial = fopen(partialPath, "w+");
 	free(partialPath);
