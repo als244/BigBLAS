@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -9,6 +11,8 @@ struct matrixMeta {
 	size_t cols;
 	int typeID;
 };
+
+int STRAT_ID = 0;
 
 long roundUpToMultiple(long numToRound, long multiple)
 {
@@ -128,15 +132,15 @@ int main(int argc, char * argv[]){
 
 	float *subA, *subB, *subC;
 
-	subA = (float *) calloc(subM * subK * sizeof(float));
-	subB = (float *) calloc(subK * subN * sizeof(float));
-	subC = (float *) calloc(subM * subN * sizeof(float));
+	subA = (float *) calloc(subM * subK, sizeof(float));
+	subB = (float *) calloc(subK * subN, sizeof(float));
+	subC = (float *) calloc(subM * subN, sizeof(float));
 
 
 	// TODO: will worry about partial blocks / zero-padding later
-	size_t blocksM = round((double) M / (double) subM);
-	size_t blocksK = round((double) K / (double) subK);
-	size_t blocksN = round((double) N / (double) subN);
+	size_t blocksM = round((double) m / (double) subM);
+	size_t blocksK = round((double) k / (double) subK);
+	size_t blocksN = round((double) n / (double) subN);
 
 
 	size_t blocksA = blocksM * blocksK;
@@ -156,80 +160,84 @@ int main(int argc, char * argv[]){
 	size_t cnt, aInd, bInd, cInd;
 
 
+
 	/* STRATEGY 1: Keeping same sublock of A in memory and exhausting matmuls paired with it */
 	// for simplicity iterate keeping each of the "A blocks" in memory and pairing them will all the "B blocks"
 	// creates a lot of temp results that take up storage and need to be aggregated
 
-	size_t partialInd;
+	if (STRAT_ID == 0){
+		size_t partialInd;
 
-	for (aInd = 0; aInd < blocksA; aInd++){
-		load_subblock(subA, aInd, subM, subK, fpA, m, k);
-		cnt = 0;
-		bInd = aInd % blocksK;
-		while (cnt < blocksN){
-			// load b
-			load_subblock(subB, bInd, subK, subN, fpB, k, n);
-			
-			
-			cInd = (aInd / blocksK) * blocksN + cnt;
-			// do matmul
-			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
-					subM, subN, subK, 1.0, subA, subK, subB, subN, 
-					0, subC, subN);
-			
-			// save partial result of C
-			partialInd = aInd % blocksK;
-			save_partial_result(subC, cInd, partialInd, subM, subN);
+		for (aInd = 0; aInd < blocksA; aInd++){
+			load_subblock(subA, aInd, subM, subK, fpA, m, k);
+			cnt = 0;
+			bInd = aInd % blocksK;
+			while (cnt < blocksN){
+				// load b
+				load_subblock(subB, bInd, subK, subN, fpB, k, n);
+				
+				
+				cInd = (aInd / blocksK) * blocksN + cnt;
+				// do matmul
+				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+						subM, subN, subK, 1.0, subA, subK, subB, subN, 
+						0, subC, subN);
+				
+				// save partial result of C
+				partialInd = aInd % blocksK;
+				save_partial_result(subC, cInd, partialInd, subM, subN);
 
-			// get next B ind
-			bInd += blocksK;
+				// get next B ind
+				bInd += blocksK;
 
-			// increment cnt
-			cnt += 1;
+				// increment cnt
+				cnt += 1;
+			}
 		}
 	}
 
-	/* STRATEGY 2: Keeping same partial result block in memory and iterating over result blocks
+
+	/* STRATEGY 2: Keeping same partial result block in memory and iterating over result blocks */
 	// iterate over each block in the output by keeping each "C block" in memory
 	
-	float beta;
 
-	for (cInd = 0; cInd < blocksC; cInd++){
-		// get starting inds for A row and B col
-		aInd = (cInd / blocksN) * blocksK;
-		bInd = (cInd % blocksN) * blocksK;
+	if (STRAT_ID == 1){
+		float beta;
 
-		cnt = 0;
-		beta = 0;
-		while (cnt < blocksK){
-			// load subA
-			load_subblock(subA, aInd, subM, subK, fpA, m, k);
-			// load subB
-			load_subblock(subB, bInd, subK, subN, fpB, k, n);
+		for (cInd = 0; cInd < blocksC; cInd++){
+			// get starting inds for A row and B col
+			aInd = (cInd / blocksN) * blocksK;
+			bInd = (cInd % blocksN) * blocksK;
 
-			// do matmul 
-			// (beta = 0 for first iteration of inner loop then 1 because adding to prior results)
-			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
-					subM, subN, subK, 1.0, subA, subK, subB, subN, 
-					beta, subC, subN);
+			cnt = 0;
+			beta = 0;
+			while (cnt < blocksK){
+				// load subA
+				load_subblock(subA, aInd, subM, subK, fpA, m, k);
+				// load subB
+				load_subblock(subB, bInd, subK, subN, fpB, k, n);
 
-			// get next block in row of A
-			aInd += 1;
-			// get next block in col of B
-			bInd += blocksK;
+				// do matmul 
+				// (beta = 0 for first iteration of inner loop then 1 because adding to prior results)
+				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+						subM, subN, subK, 1.0, subA, subK, subB, subN, 
+						beta, subC, subN);
 
-			// do next pairing of sub row/col blocks
-			beta = 1;
-			cnt += 1;
+				// get next block in row of A
+				aInd += 1;
+				// get next block in col of B
+				bInd += blocksK;
+
+				// do next pairing of sub row/col blocks
+				beta = 1;
+				cnt += 1;
+			}
+
+			// save output subblock of C
+			save_subblock(subC, cInd, subM, subN, fpC, m, n);
+
 		}
-
-		// save output subblock of C
-		save_subblock(subC, cInd, subM, subN, fpC, m, n);
-
 	}
-	*/
-	
-	
 
 	free(subA);
 	free(subB);
