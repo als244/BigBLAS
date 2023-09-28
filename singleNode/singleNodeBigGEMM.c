@@ -52,6 +52,18 @@ void save_subblock(float * subBlock, size_t blockInd, size_t subRows, size_t sub
 	}
 }
 
+void save_partial_result(float * subBlock, size_t blockInd, size_t partialInd, size_t subRows, size_t subCols){
+	
+	FILE * fpPartial;
+	char * partialPath;
+	asprintf(&partialPath, "/home/shein/Documents/grad_school/research/BigBLAS/data/temp/%zu_%zu", blockInd, partialInd);
+	
+	fpPartial = fopen(partialPath, "w+");
+	free(partialPath);
+	fwrite(subBlock, sizeof(float), subRows * subCols, fpPartial);
+	fclose(fpPartial);
+}
+
 int main(int argc, char * argv[]){
 
 	char * fileNameA = argv[1];
@@ -146,6 +158,9 @@ int main(int argc, char * argv[]){
 
 	/* STRATEGY 1: Keeping same sublock of A in memory and exhausting matmuls paired with it */
 	// for simplicity iterate keeping each of the "A blocks" in memory and pairing them will all the "B blocks"
+	// creates a lot of temp results that take up storage and need to be aggregated
+
+	size_t partialInd;
 
 	for (aInd = 0; aInd < blocksA; aInd++){
 		load_subblock(subA, aInd, subM, subK, fpA, m, k);
@@ -155,17 +170,16 @@ int main(int argc, char * argv[]){
 			// load b
 			load_subblock(subB, bInd, subK, subN, fpB, k, n);
 			
-			/* Loading partial subC and adding this matmul to the partial result
-			/* TODO: temp store this matmul and accumulate into C subblock later */
+			
 			cInd = (aInd / blocksK) * blocksN + cnt;
-			load_subblock(subC, cInd, subM, subN, fpC, m, n);
-			// do matmul (beta = 1.0 because adding to prior results in this strategy)
+			// do matmul
 			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 					subM, subN, subK, 1.0, subA, subK, subB, subN, 
-					1.0, subC, subN);
+					0, subC, subN);
 			
-			// save C
-			save_subblock(subC, cInd, subM, subN, fpC, m, n);
+			// save partial result of C
+			partialInd = aInd % blocksK;
+			save_partial_result(subC, cInd, partialInd, subM, subN);
 
 			// get next B ind
 			bInd += blocksK;
