@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 #include <sys/time.h>
 #include <cblas.h>
@@ -195,6 +196,7 @@ int main(int argc, char * argv[]){
 					load_subblock(subC, cInd, subM, subN, fpC, m, n);
 					beta = 1;
 				}
+
 				// do matmul
 				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 						subM, subN, subK, 1.0, subA, subK, subB, subN, 
@@ -214,12 +216,10 @@ int main(int argc, char * argv[]){
 					partialInd = aInd % blocksK;
 					save_partial_result(subC, cInd, partialInd, subM, subN);
 				}
-				// saving to block in memory
+				// saving to block in local filesystem
 				else{
 					save_subblock(subC, cInd, subM, subN, fpC, m, n);
 				}
-				/* 
-
 
 				// get next B ind
 				bInd += blocksK;
