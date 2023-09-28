@@ -56,6 +56,7 @@ int main(int argc, char * argv[]){
 	// write metadata struct
 	struct matrixMeta A_metadata = {m, k, typeID};
 	fpAMeta = fopen(pathAMeta, "w+");
+	free(pathAMeta);
 	fwrite(&A_metadata, sizeof(struct matrixMeta), 1, fpAMeta);
 	fclose(fpAMeta);
 
@@ -63,6 +64,7 @@ int main(int argc, char * argv[]){
 	size_t chunk_size = 4000000000;
 	float * A_chunk = (float *) calloc(chunk_size, sizeof(float));
 	fpA = fopen(pathA, "w+");
+	free(pathA);
 
 	size_t remain = m * k;
 	while (remain > 0){
@@ -83,6 +85,7 @@ int main(int argc, char * argv[]){
 	// write metadata struct
 	struct matrixMeta B_metadata = {k, n, typeID};
 	fpBMeta = fopen(pathBMeta, "w+");
+	free(pathBMeta);
 	fwrite(&B_metadata, sizeof(struct matrixMeta), 1, fpBMeta);
 	fclose(fpBMeta);
 
@@ -90,6 +93,7 @@ int main(int argc, char * argv[]){
 	chunk_size = 4000000000;
 	float * B_chunk = (float *) calloc(chunk_size, sizeof(float));
 	fpB = fopen(pathB, "w+");
+	free(pathB);
 
 	remain = k * n;
 	while (remain > 0){
