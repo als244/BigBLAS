@@ -8,13 +8,13 @@ saveMatrices: saveMatrices.c
 	${CC} ${CFLAGS} -o $@ $^ -lm
 
 singleNodeBigGEMM: singleNodeBigGEMM.c
-	nvcc -o $@ $^ -lm -lopenblas -lcublasLt
+	nvcc -O3 -o $@ $^ -lm -lopenblas -lcublasLt
 
 openblas_gemm: openblas_gemm.c
 	${CC} ${CFLAGS} -o $@ $^ -lm -lopenblas
 
 cublas_gemm: cublas_gemm.cu
-	nvcc cublas_gemm.cu -pg -g -o cublas_gemm -lcublasLt -lcurand
+	nvcc -O3 cublas_gemm.cu -o cublas_gemm -lcublasLt -lcurand
 
 clean:
 	rm *.o
