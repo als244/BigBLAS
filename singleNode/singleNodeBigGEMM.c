@@ -6,6 +6,10 @@
 #include <math.h>
 #include <sys/time.h>
 #include <cblas.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cublasLt.h>
+
 
 #define NUM_THREADS 16
 
@@ -16,6 +20,7 @@ struct matrixMeta {
 };
 
 bool SAVE_TEMP_PARTIAL = false;
+bool GPU_ENABLED = true;
 int STRAT_ID = 0;
 
 long roundUpToMultiple(long numToRound, long multiple)
@@ -32,7 +37,7 @@ long roundUpToMultiple(long numToRound, long multiple)
 // assume block inds start at 0 on top left, then left to right and top to bottom
 
 // TODO: can load blocks more efficiently if each subblock is saved contiguously (iterating over each row means slower disk access)
-void load_subblock(float * subBlock, size_t blockInd, size_t subRows, size_t subCols, FILE * fpBigMatrix, size_t rows, size_t cols){
+void load_subblock(float * subBlock, size_t blockInd, size_t subRows, size_t subCols, FILE * fpBigMatrix, size_t rows, size_t cols, float * devSubBlock){
 	size_t subBlocksInRow = cols / subCols;
 
 	size_t subBlockRowStart = (blockInd / subBlocksInRow) * subRows;
@@ -44,15 +49,26 @@ void load_subblock(float * subBlock, size_t blockInd, size_t subRows, size_t sub
 		fseek(fpBigMatrix, totalOff, SEEK_SET);
 		fread(subBlock + rowId * subCols, sizeof(float), subCols, fpBigMatrix);
 	}
+
+	// if we are loading into device
+	if (devSubBlock){
+		cudaMemcpy(devSubBlock, subBlock, subRows * subCols * sizeof(float), cudaMemcpyHostToDevice);
+	}
 }
 
 // TODO: would be faster to save subblocks contiguously and accumuate/piece together after...
-void save_subblock(float * subBlock, size_t blockInd, size_t subRows, size_t subCols, FILE * fpBigMatrix, size_t rows, size_t cols){
+void save_subblock(float * subBlock, size_t blockInd, size_t subRows, size_t subCols, FILE * fpBigMatrix, size_t rows, size_t cols, float * devSubBlock){
 	size_t subBlocksInRow = cols / subCols;
 	size_t subBlockRowStart = (blockInd / subBlocksInRow) * subRows;
 	size_t subBlockColStart = (blockInd % subBlocksInRow) * subCols;
 
 	size_t totalOff;
+
+	// if we are saving from device
+	if (devSubBlock){
+		cudaMemcpy(subBlock, devSubBlock, subRows * subCols * sizeof(float), cudaMemcpyDeviceToHost);
+	}
+
 	for (int rowId = 0; rowId < subRows; rowId++){
 		totalOff = ((subBlockRowStart + rowId) * cols + subBlockColStart) * sizeof(float);
 		fseek(fpBigMatrix, totalOff, SEEK_SET);
@@ -130,9 +146,9 @@ int main(int argc, char * argv[]){
 	fclose(fpCMeta);
 
 	// TODO: get formula to compute instead of manual
-	size_t subM = 4096;
-	size_t subK = 4096;
-	size_t subN = 4096;
+	size_t subM = 32768;
+	size_t subK = 65536;
+	size_t subN = 32768;
 
 	float *subA, *subB, *subC;
 
@@ -159,10 +175,63 @@ int main(int argc, char * argv[]){
 	fpC = fopen(pathC, "w+");
 	free(pathC);
 
+	/* SETTING CUBLAS STUFF */
+	void *d_subA, *d_subB, *d_subC;
+
+	if (GPU_ENABLED){
+		cudaMalloc(&d_subA, subM * subK * sizeof(float));
+		cudaMalloc(&d_subB, subK * subM * sizeof(float));
+		cudaMalloc(&d_subC, subM * subN * sizeof(float));
+	}
+
+	cublasStatus_t status;
+	cublasLtHandle_t handle;
+	status = cublasLtCreate(&handle);
+
+
+	cublasOperation_t transa = CUBLAS_OP_T;
+	cublasOperation_t transb = CUBLAS_OP_N;
+
+	cublasLtMatrixLayout_t Adesc, Bdesc, Cdesc, Ddesc;
+
+	cublasLtMatmulDesc_t matmulDesc;
+
+	status = cublasLtMatmulDescCreate(&matmulDesc, CUBLAS_COMPUTE_32F_FAST_16F, CUDA_R_32F);
+	status = cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSA, &transa, sizeof(transa));
+	status = cublasLtMatmulDescSetAttribute(matmulDesc, CUBLASLT_MATMUL_DESC_TRANSB, &transb, sizeof(transb));
+
+	// A Transposed (from row-major to column-major), not B/D (but still held in col-major format internally)
+	// m and k must be multiples of 4, perferablly multiples of 16
+	status = cublasLtMatrixLayoutCreate(&Adesc, CUDA_R_32F, subK, subM, subK);
+	status = cublasLtMatrixLayoutCreate(&Bdesc, CUDA_R_32F, subK, subN, subK);
+	status = cublasLtMatrixLayoutCreate(&Cdesc, CUDA_R_32F, subM, subN, subM);
+	status = cublasLtMatrixLayoutCreate(&Ddesc, CUDA_R_32F, subM, subN, subM);
+
+
+	cublasLtMatmulPreference_t pref;
+	status = cublasLtMatmulPreferenceCreate(&pref);
+	// ALLOW workspace mem...
+	const size_t workspaceBytes = 0;
+	status = cublasLtMatmulPreferenceSetAttribute(pref, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &workspaceBytes, sizeof(workspaceBytes));
+
+	int algoCount = 1;
+	int retAlgoCount = 0;
+
+	cublasLtMatmulHeuristicResult_t heuristicResultsArray = {};
+
+	status = cublasLtMatmulAlgoGetHeuristic(handle, matmulDesc, Adesc, Bdesc, Cdesc, Ddesc, pref, algoCount, &heuristicResultsArray, &retAlgoCount);
+
+	cublasLtMatmulAlgo_t algo = heuristicResultsArray.algo;
+
+	//void * workspace;
+	void * workspace = NULL;
+	cudaMalloc(&workspace, workspaceBytes);
+
 	/* STARTING MATRIX MULTIPLICATIONS! */
 	openblas_set_num_threads(NUM_THREADS);
 
 	size_t cnt, aInd, bInd, cInd;
+	float alpha = 1.0;
 	float beta;
 
 	size_t matMulCnt = 0;
@@ -179,12 +248,12 @@ int main(int argc, char * argv[]){
 	if (STRAT_ID == 0){
 		size_t partialInd;
 		for (aInd = 0; aInd < blocksA; aInd++){
-			load_subblock(subA, aInd, subM, subK, fpA, m, k);
+			load_subblock(subA, aInd, subM, subK, fpA, m, k, d_subA);
 			cnt = 0;
 			bInd = aInd % blocksK;
 			while (cnt < blocksN){
 				// load b
-				load_subblock(subB, bInd, subK, subN, fpB, k, n);
+				load_subblock(subB, bInd, subK, subN, fpB, k, n, d_subB);
 				
 				
 				cInd = (aInd / blocksK) * blocksN + cnt;
@@ -193,16 +262,38 @@ int main(int argc, char * argv[]){
 					beta = 0;
 				}
 				else{
-					load_subblock(subC, cInd, subM, subN, fpC, m, n);
+					load_subblock(subC, cInd, subM, subN, fpC, m, n, d_subC);
 					beta = 1;
 				}
 
 				// do matmul
-				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+				if (GPU_ENABLED){
+					status = cublasLtMatmul(handle,
+							matmulDesc,
+							&alpha,
+							d_subA,
+							Adesc,
+							d_subB,
+							Bdesc,
+							&beta,
+							d_subC,
+							Cdesc,
+							d_subC,
+							Ddesc,
+							&algo,
+							workspace,
+							workspaceBytes,
+							0);
+				}
+				else{
+					cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 						subM, subN, subK, 1.0, subA, subK, subB, subN, 
 						beta, subC, subN);
+				}
+
+
 				matMulCnt += 1;
-				if (matMulCnt % 100 == 0){
+				if (matMulCnt % 1 == 0){
 					gettimeofday(&curTime, NULL);
 					time_taken = (double) (curTime.tv_usec - start.tv_usec) / 1000000 +
         							(double) (curTime.tv_sec - start.tv_sec);
@@ -218,7 +309,7 @@ int main(int argc, char * argv[]){
 				}
 				// saving to block in local filesystem
 				else{
-					save_subblock(subC, cInd, subM, subN, fpC, m, n);
+					save_subblock(subC, cInd, subM, subN, fpC, m, n, d_subC);
 				}
 
 				// get next B ind
@@ -247,15 +338,36 @@ int main(int argc, char * argv[]){
 			beta = 0;
 			while (cnt < blocksK){
 				// load subA
-				load_subblock(subA, aInd, subM, subK, fpA, m, k);
+				load_subblock(subA, aInd, subM, subK, fpA, m, k, d_subA);
 				// load subB
-				load_subblock(subB, bInd, subK, subN, fpB, k, n);
+				load_subblock(subB, bInd, subK, subN, fpB, k, n, d_subB);
 
 				// do matmul 
 				// (beta = 0 for first iteration of inner loop then 1 because adding to prior results)
-				cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+
+				if (GPU_ENABLED){
+					status = cublasLtMatmul(handle,
+							matmulDesc,
+							&alpha,
+							d_subA,
+							Adesc,
+							d_subB,
+							Bdesc,
+							&beta,
+							d_subC,
+							Cdesc,
+							d_subC,
+							Ddesc,
+							&algo,
+							workspace,
+							workspaceBytes,
+							0);
+				}
+				else{
+					cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 						subM, subN, subK, 1.0, subA, subK, subB, subN, 
 						beta, subC, subN);
+				}
 				matMulCnt += 1;
 				if (matMulCnt % 100 == 0){
 					gettimeofday(&curTime, NULL);
@@ -275,7 +387,7 @@ int main(int argc, char * argv[]){
 			}
 
 			// save output subblock of C
-			save_subblock(subC, cInd, subM, subN, fpC, m, n);
+			save_subblock(subC, cInd, subM, subN, fpC, m, n, d_subC);
 
 		}
 	}
