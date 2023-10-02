@@ -369,7 +369,7 @@ int main(int argc, char * argv[]){
 						beta, subC, subN);
 				}
 				matMulCnt += 1;
-				if (matMulCnt % 100 == 0){
+				if (matMulCnt % 1 == 0){
 					gettimeofday(&curTime, NULL);
 					time_taken = (double) (curTime.tv_usec - start.tv_usec) / 1000000 +
         							(double) (curTime.tv_sec - start.tv_sec);
@@ -401,6 +401,10 @@ int main(int argc, char * argv[]){
 	free(subA);
 	free(subB);
 	free(subC);
+
+	cudaFree(d_subA);
+	cudaFree(d_subB);
+	cudaFree(d_subC);
 
 	fclose(fpA);
 	fclose(fpB);
