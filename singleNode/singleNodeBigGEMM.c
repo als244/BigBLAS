@@ -21,7 +21,7 @@ struct matrixMeta {
 
 bool SAVE_TEMP_PARTIAL = false;
 bool GPU_ENABLED = true;
-int STRAT_ID = 0;
+int STRAT_ID = 1;
 
 long roundUpToMultiple(long numToRound, long multiple)
 {
