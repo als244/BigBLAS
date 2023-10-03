@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #define M_PI 3.14159265358979323846
@@ -13,15 +14,21 @@ struct matrixMeta {
 	int typeID;
 };
 
-void sampleNormal(float * X, int size, float mean, float var) {
+void sampleNormal(float * X, size_t size, float mean, float var) {
 	float x, y, z, std, val;
-	for (int i = 0; i < size; i++){
+	for (size_t i = 0; i < size; i++){
 		x = (float)rand() / RAND_MAX;
 		y = (float)rand() / RAND_MAX;
 		z = sqrtf(-2 * logf(x)) * cosf(2 * M_PI * y);
 		std = sqrtf(var);
 		val = std * z + mean;
 		X[i] = val;
+	}
+}
+
+void populateIndices(float * X, size_t size, size_t startInd){
+	for (size_t i = startInd; i < startInd + size; i++){
+		X[i] = (float) i;
 	}
 }
 
@@ -35,8 +42,10 @@ int main(int argc, char * argv[]){
 	// deal with various types later, but include as input...
 	int typeID = atoi(argv[4]);
 
-	char * fileNameA = argv[5];
-	char * fileNameB = argv[6];
+	char * fillType = argv[5];
+
+	char * fileNameA = argv[6];
+	char * fileNameB = argv[7];
 
 	char * pathA, *pathAMeta, *pathB, *pathBMeta;
 	
@@ -47,8 +56,6 @@ int main(int argc, char * argv[]){
 
 	FILE * fpA, *fpAMeta, * fpB, * fpBMeta;
 
-
-	
 
 	// dealing with A matrix
 	printf("Writing to matrix A!\n\n");
@@ -67,11 +74,18 @@ int main(int argc, char * argv[]){
 	free(pathA);
 
 	size_t remain = m * k;
+	size_t chunk_start = 0;
 	while (remain > 0){
 		if (chunk_size > remain){
 			chunk_size = remain;
 		}
-		sampleNormal(A_chunk, chunk_size, 0, 1);
+		if (strcmp(fillType, "random") == 0) {
+			sampleNormal(A_chunk, chunk_size, 0, 1);
+		}
+		else{
+			populateIndices(A_chunk, chunk_size, chunk_start);
+			chunk_start += chunk_size;
+		}
 		fwrite(A_chunk, sizeof(float), chunk_size, fpA);
 		remain -= chunk_size;
 	}
@@ -96,11 +110,18 @@ int main(int argc, char * argv[]){
 	free(pathB);
 
 	remain = k * n;
+	chunk_start = 0;
 	while (remain > 0){
 		if (chunk_size > remain){
 			chunk_size = remain;
 		}
-		sampleNormal(B_chunk, chunk_size, 0, 1);
+		if (strcmp(fillType, "random") == 0) {
+			sampleNormal(B_chunk, chunk_size, 0, 1);
+		}
+		else{
+			populateIndices(A_chunk, chunk_size, chunk_start);
+			chunk_start += chunk_size;
+		}
 		fwrite(B_chunk, sizeof(float), chunk_size, fpB);
 		remain -= chunk_size;
 	}
