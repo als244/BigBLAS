@@ -31,11 +31,16 @@ def do_rpc_matmul(stub, A, B):
 	k = A.shape[1]
 	n = B.shape[1]
 
-	initMatMulResponse = gemm_simple_pb2.MatMulInitRequest(m, k, n)
+	initMatMulRequest = gemm_simple_pb2.MatMulInitRequest(m, k, n)
+	initMatMulResponse = stub.RequestMatMul(initMatMulRequest)
 
 	operationId = initMatMulResponse.operationId
 
-	matmul_rpc_input = createMatricesInputMessage(operationId, A, B)
+	matmulRpcInput = createMatricesInputMessage(operationId, A, B)
+
+	output = stub.MatrixMultiply(matmulRpcInput)
+
+	return output
 
 
 def run():
@@ -51,7 +56,7 @@ def run():
     # used in circumstances in which the with statement does not fit the needs
     # of the code.
     with grpc.insecure_channel("localhost:50051") as channel:
-        stub = gemm_simple_pb2_grpc.RouteGuideStub(channel)
+        stub = gemm_simple_pb2_grpc.MatMulStub(channel)
         matrixOutput = do_rpc_matmul(stub, A, B)
     	
     	operationId = matrixOutput.operationId
