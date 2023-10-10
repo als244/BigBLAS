@@ -43,7 +43,7 @@ def run():
 	# DO IT WITH KNOWN INPUTS
 
 	data_dir = "/home/shein/Documents/grad_school/research/BigBLAS/data/"
-	A_filename, B_filename = "A_inds_32768_65536", "B_inds_65536_16384"
+	A_filename, B_filename = "A_8192_4096", "B_4096_16384"
 	A = np.reshape(np.fromfile(data_dir + A_filename, dtype=np.float32), (32768, 65536))
 	B = np.reshape(np.fromfile(data_dir + B_filename, dtype=np.float32), (65536, 16384))
 
