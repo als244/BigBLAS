@@ -29,6 +29,5 @@ message MatrixChunk {
 service MatMul{
 
 	rpc RequestMatMul(MatMulInitRequest) returns (MatMulInitResponse);
-
 	rpc MatrixMultiply(stream MatrixChunk) returns (stream MatrixChunk);
 }
