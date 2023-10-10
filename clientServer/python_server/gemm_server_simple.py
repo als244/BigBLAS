@@ -44,7 +44,7 @@ class MatMulServicer(gemm_simple_pb2_grpc.MatMulServicer):
 
     def __init__(self):
     	self.operationCounter = 0
-        self.operations = {}
+    	self.operations = {}
 
 
     def RequestMatMul(self, request, context):
