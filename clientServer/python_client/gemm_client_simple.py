@@ -52,22 +52,22 @@ def run():
 	A = np.reshape(np.fromfile(data_dir + A_filename, dtype=np.float32), (32768, 65536))
 	B = np.reshape(np.fromfile(data_dir + B_filename, dtype=np.float32), (65536, 16384))
 
-    # NOTE(gRPC Python Team): .close() is possible on a channel and should be
-    # used in circumstances in which the with statement does not fit the needs
-    # of the code.
-    with grpc.insecure_channel("localhost:50051") as channel:
-        stub = gemm_simple_pb2_grpc.MatMulStub(channel)
-        matrixOutput = do_rpc_matmul(stub, A, B)
-    	
-    	operationId = matrixOutput.operationId
-
-    	print("Finished Operation with ID = " + str(operationId) + "\n")
-    	m, n = matrixOutput.m, matrixOutput.n
-    	print("Output Dims: (" + str(m) + ", " + str(n) + ")\n")
-    	matrixData = matrixOutput.data
-    	C = np.reshape(np.asarray(matrixData, dtype=np.float32), (m, n))
+	# NOTE(gRPC Python Team): .close() is possible on a channel and should be
+	# used in circumstances in which the with statement does not fit the needs
+	# of the code.
+	
+	with grpc.insecure_channel("localhost:50051") as channel:
+		stub = gemm_simple_pb2_grpc.MatMulStub(channel)
+		matrixOutput = do_rpc_matmul(stub, A, B)	
+		
+		operationId = matrixOutput.operationId
+		print("Finished Operation with ID = " + str(operationId) + "\n")
+		m, n = matrixOutput.m, matrixOutput.n
+		print("Output Dims: (" + str(m) + ", " + str(n) + ")\n")
+		matrixData = matrixOutput.data
+		C = np.reshape(np.asarray(matrixData, dtype=np.float32), (m, n))
 
 
 if __name__ == "__main__":
-    logging.basicConfig()
-    run()
+	logging.basicConfig()
+	run()
