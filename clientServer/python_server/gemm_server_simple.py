@@ -13,7 +13,7 @@ import gemm_simple_pb2_grpc
 def createInitMatMulResponse(operation):
 	
 	## later on do function for estimating time
-	response = gemm_pb2.MatMulInitResponse(
+	response = gemm_simple_pb2.MatMulInitResponse(
 		operationId = operation.id
 	)
 	return response
@@ -21,7 +21,7 @@ def createInitMatMulResponse(operation):
 def createMatrixOutput(operation_id, out_matrix):
 	shape = np.shape(out_matrix)
 	matrixData = np.ravel(out_matrix).tolist()
-	outputMatrix = gemm_pb2.MatrixChunk(
+	outputMatrix = gemm_simple_pb2.MatrixChunk(
 		operationId=operation_id,
 		m=shape[0],
 		n=shape[1]
@@ -39,7 +39,7 @@ class Operation():
 		self.N = n
 		
 
-class MatMulServicer(gemm_pb2_grpc.MatMulServicer):
+class MatMulServicer(gemm_simple_pb2_grpc.MatMulServicer):
     """Provides methods that implement functionality of route guide server."""
 
     def __init__(self):
@@ -93,7 +93,7 @@ class MatMulServicer(gemm_pb2_grpc.MatMulServicer):
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    gemm_pb2_grpc.add_MatMulServicer_to_server(
+    gemm_simple_pb2_grpc.add_MatMulServicer_to_server(
         MatMulServicer(), server
     )
     server.add_insecure_port("[::]:50051")
