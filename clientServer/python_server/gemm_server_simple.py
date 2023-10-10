@@ -9,6 +9,7 @@ import grpc
 import gemm_simple_pb2
 import gemm_simple_pb2_grpc
 
+MAX_MESSAGE_LENGTH = -1
 
 def createInitMatMulResponse(operation):
 	
@@ -92,7 +93,12 @@ class MatMulServicer(gemm_simple_pb2_grpc.MatMulServicer):
 
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10),
+    					 options=[
+        					('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
+        					('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH)
+    					 ]
+    					)
     gemm_simple_pb2_grpc.add_MatMulServicer_to_server(
         MatMulServicer(), server
     )
