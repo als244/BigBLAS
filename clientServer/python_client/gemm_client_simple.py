@@ -33,12 +33,16 @@ def do_rpc_matmul(stub, A, B):
 	n = B.shape[1]
 
 	initMatMulRequest = gemm_simple_pb2.MatMulInitRequest(m=m, k=k, n=n)
+	
+	print("Requesting MatMul of size (" + str(m) + ", " + str(k) + ", " + str(n) + "\n")
 	initMatMulResponse = stub.RequestMatMul(initMatMulRequest)
 
 	operationId = initMatMulResponse.operationId
+	print("Granted Operation with ID: " + str(operationId) + "\n")
 
 	matmulRpcInput = createMatricesInputMessage(operationId, A, B)
 
+	print("Performing RPC MatMul\n")
 	output = stub.MatrixMultiply(matmulRpcInput)
 
 	return output

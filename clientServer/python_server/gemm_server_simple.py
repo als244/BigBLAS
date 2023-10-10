@@ -62,8 +62,11 @@ class MatMulServicer(gemm_simple_pb2_grpc.MatMulServicer):
 
     def MatrixMultiply(self, request, context):
 
+    	
     	operationId = request.operationId
     	m, k, n = request.m, request.k, request.n
+
+    	print("Received MatMul Request for Operation ID: " + str(operationId) + "\n")
 
     	if request.operationId not in self.operations:
     		#error
@@ -83,6 +86,8 @@ class MatMulServicer(gemm_simple_pb2_grpc.MatMulServicer):
     	B = np.reshape(np.asarray(data[m * k: ], dtype=np.float32), (k, n))
 
     	C = np.matmul(A, B)
+
+    	print("Finished MatMul for Operation ID: " + str(operationId) + "\n")
 
     	outputMatrix = createMatrixOutput(operationId, C)
     	return outputMatrix
