@@ -45,14 +45,20 @@ class OperationProgress():
 		self.blocksM = blocksM
 		self.blocksK = blocksK
 		self.blocksN = blocksN
-		self.remainingBlocks = createInitRemaining(blocksM, blocksK, blocksN)
+		self.resultDepends, self.dependsOnA, self.dependsOnB = createInitDependencies(blocksM, blocksK, blocksN)
 		self.completedBlocks = set()
+		self.blocksAReceived = set()
+		self.blocksBReceived = set()
 		self.blocksAInMem = set()
 		self.blcoksBinMem = set()
 
-	# dictionary of resultBlockId -> set of (blockAId, blockBId) tuples that need to be matMul'd and added
-	def createInitRemaining(blocksM, blocksK, blocksN):
+	# returns:
+	# 	dictionary of resultBlockId -> set of (blockAId, blockBId) tuples that need to be matMul'd and added
+	# 	dict of aBlockId -> set of result blocks it is dependency for
+	#	dict of bBlockId -> set of result blocks it is dependency for
+	def createInitDependencies(blocksM, blocksK, blocksN):
 		remaining = {}
+		dependsOnA, dependsOnB = {}, {}
 		blocksC = blocksM * blocksN
 		for cInd in range(blocksC):
 			remaining[cInd] = set()
@@ -61,10 +67,16 @@ class OperationProgress():
 			cnt = 0
 			while (cnt < blocksK):
 				remaining[cInd].add((aInd, bInd))
+				if aInd not in dependsOnA:
+					dependsOnA[aInd] = set()
+				if bInd not in dependsOnB:
+					dependsOnB[bInd] = set()
+				dependsOnA[aInd].add(cInd)
+				dependsOnB[bInd].add(cInd)
 				aInd += 1
 				bInd += blocksK
 				cnt += 1
-		return remaining
+		return remaining, dependsOnA, dependsOnB
 		
 
 class Operation():
@@ -135,11 +147,21 @@ class MatMulServicer(gemm_pb2_grpc.MatMulServicer):
     			continue
 
     		## determine what block(s) matrix incoming data stream refers to
+    		## save data in server/cluster filesystem
+
+    		# A
+    		if  matrix_chunk.isLeftInputMatrix:
+
+    		# B
+    		else:
+
 
 
     		## see if necessary blocks have been sent over 
     		## in order to compute series of matmuls and adds
     		## to then send back a result block
+
+
     		result = np.matmul()
     		outputChunk = createMatrixChunkOutput(result) 
     		yield outputChunk
