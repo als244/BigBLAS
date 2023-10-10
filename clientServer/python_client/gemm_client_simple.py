@@ -7,6 +7,7 @@ import grpc
 import gemm_simple_pb2
 import gemm_simple_pb2_grpc
 
+MAX_MESSAGE_LENGTH = -1
 
 def createMatricesInputMessage(operationId, A, B):
 	m = A.shape[0]
@@ -56,7 +57,7 @@ def run():
 	# used in circumstances in which the with statement does not fit the needs
 	# of the code.
 	
-	with grpc.insecure_channel("localhost:50051") as channel:
+	with grpc.insecure_channel("localhost:50051", options=[('grpc.max_send_message_length', MAX_MESSAGE_LENGTH), ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH)]) as channel:
 		stub = gemm_simple_pb2_grpc.MatMulStub(channel)
 		matrixOutput = do_rpc_matmul(stub, A, B)	
 		
