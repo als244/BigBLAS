@@ -22,7 +22,7 @@ def createInitMatMulResponse(operation):
 def createMatrixOutput(operation_id, out_matrix):
 	shape = np.shape(out_matrix)
 	matrixData = np.ravel(out_matrix).tolist()
-	outputMatrix = gemm_simple_pb2.MatrixChunk(
+	outputMatrix = gemm_simple_pb2.MatrixOutput(
 		operationId=operation_id,
 		m=shape[0],
 		n=shape[1]
