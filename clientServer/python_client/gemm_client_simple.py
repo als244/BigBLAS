@@ -66,7 +66,7 @@ def run():
 		matrixOutput = do_rpc_matmul(stub, A, B)	
 		
 		operationId = matrixOutput.operationId
-		print("Finished Operation with ID = " + str(operationId) + "\n")
+		print("Finished Operation with ID: " + str(operationId) + "\n")
 		m, n = matrixOutput.m, matrixOutput.n
 		print("Output Dims: (" + str(m) + ", " + str(n) + ")\n")
 		matrixData = matrixOutput.data
