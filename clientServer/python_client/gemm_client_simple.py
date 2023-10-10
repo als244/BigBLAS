@@ -34,7 +34,7 @@ def do_rpc_matmul(stub, A, B):
 
 	initMatMulRequest = gemm_simple_pb2.MatMulInitRequest(m=m, k=k, n=n)
 	
-	print("Requesting MatMul of size (" + str(m) + ", " + str(k) + ", " + str(n) + "\n")
+	print("Requesting MatMul of size (" + str(m) + ", " + str(k) + ", " + str(n) + ")\n")
 	initMatMulResponse = stub.RequestMatMul(initMatMulRequest)
 
 	operationId = initMatMulResponse.operationId
