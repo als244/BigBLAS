@@ -52,7 +52,7 @@ class MatMulServicer(gemm_simple_pb2_grpc.MatMulServicer):
     	# make sure this is set atomic
     	operation_id = self.operationCounter
     	self.operationCounter += 1
-    	newOperation = Operation(operation_id, M, K, N, pref)
+    	newOperation = Operation(operation_id, M, K, N)
     	self.operations[operation_id] = newOperation
 
     	initResponse = createInitMatMulResponse(newOperation)
