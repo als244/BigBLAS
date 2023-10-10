@@ -32,7 +32,7 @@ def createMatrixOutput(operation_id, out_matrix):
 
 class Operation():
 
-	def __init__(self, operation_id, m, k, n, pref):
+	def __init__(self, operation_id, m, k, n):
 		self.id = operation_id
 		self.M = m
 		self.K = k
