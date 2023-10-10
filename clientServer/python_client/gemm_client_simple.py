@@ -31,7 +31,7 @@ def do_rpc_matmul(stub, A, B):
 	k = A.shape[1]
 	n = B.shape[1]
 
-	initMatMulRequest = gemm_simple_pb2.MatMulInitRequest(m, k, n)
+	initMatMulRequest = gemm_simple_pb2.MatMulInitRequest(m=m, k=k, n=n)
 	initMatMulResponse = stub.RequestMatMul(initMatMulRequest)
 
 	operationId = initMatMulResponse.operationId
@@ -49,8 +49,8 @@ def run():
 
 	data_dir = "/home/shein/Documents/grad_school/research/BigBLAS/data/"
 	A_filename, B_filename = "A_8192_4096", "B_4096_16384"
-	A = np.reshape(np.fromfile(data_dir + A_filename, dtype=np.float32), (32768, 65536))
-	B = np.reshape(np.fromfile(data_dir + B_filename, dtype=np.float32), (65536, 16384))
+	A = np.reshape(np.fromfile(data_dir + A_filename, dtype=np.float32), (8192, 4096))
+	B = np.reshape(np.fromfile(data_dir + B_filename, dtype=np.float32), (4096, 16384))
 
 	# NOTE(gRPC Python Team): .close() is possible on a channel and should be
 	# used in circumstances in which the with statement does not fit the needs
