@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package mathcloud;
+
+enum DataType {
+	MATRIX = 0;
+	VECTOR = 1;
+	SCALAR = 2;
+}
+
+enum OperationType {
+	MATRIX_MATRIX_MULTIPLY = 0;
+	MATRIX_MATRIX_ADD = 1;
+	MATRIX_VECTOR_MULTIPLY = 2;
+	MATRIX_SCALAR_MULTIPLY = 3;
+	MATRIX_SCALAR_ADD = 4;
+	VECTOR_VECTOR_MULTIPLY = 5;
+	VECTOR_VECTOR_ADD = 6;
+	VECTOR_SCALAR_MULTIPLY = 7;
+	VECTOR_SCALAR_ADD = 8;
+}
+
+message CreateFileMessage {
+	string path = 1;
+	DataType data_type = 2;
+	repeated uint64 dims = 3;
+}
+
+message CreateFileReply {
+	string path = 1;
+	uint64 file_id = 2;
+}
+
+message DeleteFileMessage {
+	uint64 file_id = 1;
+}
+
+message DeleteFileReply {}
+
+
+message SendDataChunk {
+	uint64 user_id = 1;
+	string path = 2;
+	uint64 file_id = 3;
+	uint64 chunk_index = 4;
+	uint64 chunk_size = 5;
+	bytes data = 6;
+}
+
+message SendDataChunkReply {}
+
+message ReceiveDataChunkRequest {}
+
+message ReceiveDataChunk {
+	uint64 file_id = 1;
+	string path = 2;
+	uint64 chunk_index = 3;
+	uint64 chunk_size = 4;
+	bytes data = 5;
+}
+
+message OperationRequest {
+	OperationType operation_type = 1;
+	repeated uint64 file_ids = 2;
+	repeated uint64 dims = 3;
+	string pref = 4;
+}
+
+message OperationRequestReply {
+	uint64 operation_id = 1;
+	uint64 estimated_time = 2;
+}
+
+message DoOperation {
+	uint64 operation_id = 1;
+}
+
+message DoOperationReply {
+	uint64 operation_id = 1;
+	string result_path = 2;
+	uint64 result_file_id = 3;
+	DataType result_data_type = 4;
+	repeated uint64 result_dims = 5;
+	uint64 result_size = 6;
+	uint64 elapsed_time = 7;
+}
+
+service MathCloud{
+
+	rpc CreateFile(CreateFileMessage) returns (CreateFileReply);
+	rpc DeleteFile(DeleteFileMessage) returns (DeleteFileReply);
+
+	// might want to make these streaming...? 
+	rpc PushData(SendDataChunk) returns (SendDataChunkReply);
+	rpc PullData(ReceiveDataChunkRequest) returns (ReceiveDataChunk);
+
+	rpc RequestOperation(OperationRequest) returns (OperationRequestReply);
+	rpc PerformOperation(DoOperation) returns (DoOperationReply);
+}
